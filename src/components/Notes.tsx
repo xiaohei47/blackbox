@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
-import { Input, Empty } from "antd";
+import { Input, Empty, Drawer, Switch, message } from "antd";
+import { SettingOutlined } from "@ant-design/icons";
 import { appDataDir } from "@tauri-apps/api/path";
+import { getAutoSave, setAutoSave } from "../settings-repo";
 import type { Note } from "../notes-repo";
 import {
   loadNotes,
@@ -48,6 +50,17 @@ const Notes: React.FC = () => {
   // Keep ref in sync with state
   useEffect(() => { activeIdRef.current = activeId; }, [activeId]);
 
+  // ── Auto-save setting ──
+  const [autoSave, setAutoSaveState] = useState(true);
+  const autoSaveRef = useRef(true);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  useEffect(() => { autoSaveRef.current = autoSave; }, [autoSave]);
+
+  // Load auto-save setting on mount
+  useEffect(() => {
+    getAutoSave().then(setAutoSaveState);
+  }, []);
+
   // ── App data dir for image paste ──
   const [appDataDirPath, setAppDataDirPath] = useState("");
   useEffect(() => {
@@ -94,6 +107,24 @@ const Notes: React.FC = () => {
       if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
       flushPendingSave();
     };
+  }, []);
+
+  // ── Ctrl+S / Cmd+S keyboard shortcut ──
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === "s") {
+        e.preventDefault();
+        if (saveTimerRef.current) {
+          clearTimeout(saveTimerRef.current);
+          saveTimerRef.current = null;
+        }
+        flushPendingSave().then(() => {
+          message.success("已保存");
+        });
+      }
+    };
+    document.addEventListener("keydown", onKeyDown);
+    return () => document.removeEventListener("keydown", onKeyDown);
   }, []);
 
   function scheduleSave() {
@@ -180,7 +211,7 @@ const Notes: React.FC = () => {
 
       // Queue debounced save
       pendingRef.current = { ...pendingRef.current, [field]: value };
-      scheduleSave();
+      if (autoSaveRef.current) scheduleSave();
     },
     [],
   );
@@ -190,10 +221,22 @@ const Notes: React.FC = () => {
       setDraftContent(html);
       setDraftUpdatedAt(Date.now());
       pendingRef.current = { ...pendingRef.current, content: html };
-      scheduleSave();
+      if (autoSaveRef.current) scheduleSave();
     },
     [],
   );
+
+  // ── Dirty state (unsaved changes exist) ──
+  const isDirty = pendingRef.current !== null;
+
+  const handleSettingsToggle = useCallback(async (val: boolean) => {
+    setAutoSaveState(val);
+    await setAutoSave(val);
+    // If turning auto-save back on and there are pending changes, flush them
+    if (val && pendingRef.current) {
+      scheduleSave();
+    }
+  }, []);
 
   return (
     <div className="notes-layout">
@@ -230,6 +273,10 @@ const Notes: React.FC = () => {
                 onChange={(e) => handleChange("title", e.target.value)}
               />
               <span className="notes-edit-time">{formatTime(draftUpdatedAt)}</span>
+              {!autoSave && isDirty && <span className="notes-dirty-dot" />}
+              <button className="notes-settings-btn" title="设置" onClick={() => setSettingsOpen(true)}>
+                <SettingOutlined />
+              </button>
             </div>
 
             <RichEditor
@@ -242,6 +289,19 @@ const Notes: React.FC = () => {
           </>
         )}
       </main>
+
+      <Drawer
+        title="设置"
+        placement="right"
+        onClose={() => setSettingsOpen(false)}
+        open={settingsOpen}
+        width={280}
+      >
+        <div className="settings-item">
+          <span className="settings-item-label">自动保存</span>
+          <Switch checked={autoSave} onChange={handleSettingsToggle} />
+        </div>
+      </Drawer>
     </div>
   );
 };

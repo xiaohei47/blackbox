@@ -102,6 +102,50 @@
   color: #d32f2f;
 }
 
+.notes-dirty-dot {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #ff9500;
+  flex-shrink: 0;
+}
+
+.notes-settings-btn {
+  background: none;
+  border: none;
+  color: #8e8e93;
+  cursor: pointer;
+  font-size: 15px;
+  padding: 4px;
+  border-radius: 4px;
+  display: inline-flex;
+  align-items: center;
+  transition: background 0.15s, color 0.15s;
+  line-height: 1;
+}
+
+.notes-settings-btn:hover {
+  background: rgba(0, 0, 0, 0.05);
+  color: #1d1d1f;
+}
+
+.settings-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 0;
+}
+
+.settings-item + .settings-item {
+  border-top: 1px solid rgba(0, 0, 0, 0.06);
+}
+
+.settings-item-label {
+  font-size: 14px;
+  color: #1d1d1f;
+}
+
 /* ============ Rich Editor (PlateJS / Slate) ============ */
 
 .rich-editor {
@@ -289,6 +333,23 @@ div.fixed-toolbar {
   .notes-delete-btn:hover {
     background: rgba(255, 255, 255, 0.08);
     color: #ff6b6b;
+  }
+
+  .notes-settings-btn {
+    color: #98989d;
+  }
+
+  .notes-settings-btn:hover {
+    background: rgba(255, 255, 255, 0.08);
+    color: #f5f5f7;
+  }
+
+  .settings-item-label {
+    color: #f5f5f7;
+  }
+
+  .settings-item + .settings-item {
+    border-top-color: rgba(255, 255, 255, 0.08);
   }
 
   /* ── FixedToolbar dark ── */
