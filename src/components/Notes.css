@@ -1,0 +1,174 @@
+.notes-layout {
+  display: flex;
+  flex: 1;
+  overflow: hidden;
+  background: #fff;
+  border: 1px solid rgba(0, 0, 0, 0.06);
+}
+
+/* ============ Editor Panel ============ */
+
+.notes-editor {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  background: #fff;
+  min-width: 0;
+}
+
+.notes-editor-empty {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* ============ Toolbar ============ */
+
+.notes-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 8px 16px 0;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.04);
+}
+
+.notes-toolbar-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  height: 28px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: #6e6e73;
+  font-size: 12px;
+  font-family: inherit;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+
+.notes-toolbar-btn:hover {
+  background: rgba(0, 0, 0, 0.05);
+  color: #1d1d1f;
+}
+
+.notes-toolbar-btn:active {
+  background: rgba(0, 0, 0, 0.08);
+}
+
+/* ============ Editor Header ============ */
+
+.notes-editor-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 20px 0;
+}
+
+.notes-edit-time {
+  font-size: 12px;
+  color: #8e8e93;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.notes-editor-title {
+  font-size: 20px !important;
+  font-weight: 600;
+}
+
+.notes-editor-title input {
+  font-size: 20px !important;
+  font-weight: 600;
+}
+
+.notes-delete-btn {
+  background: none;
+  border: none;
+  color: #8e8e93;
+  cursor: pointer;
+  font-size: 16px;
+  padding: 4px 6px;
+  border-radius: 4px;
+  transition: background 0.15s, color 0.15s;
+  line-height: 1;
+}
+
+.notes-delete-btn:hover {
+  background: rgba(0, 0, 0, 0.05);
+  color: #d32f2f;
+}
+
+/* ============ Editor Content ============ */
+
+.notes-editor-content {
+  flex: 1;
+  padding: 12px 20px 20px;
+  font-size: 15px;
+  line-height: 1.7;
+  resize: none;
+  border: none !important;
+  outline: none !important;
+  box-shadow: none !important;
+}
+
+.notes-editor-content:focus {
+  border: none !important;
+  outline: none !important;
+  box-shadow: none !important;
+}
+
+/* ============ Dark Mode ============ */
+
+@media (prefers-color-scheme: dark) {
+  .notes-layout {
+    background: #1c1c1e;
+    border-color: rgba(255, 255, 255, 0.06);
+  }
+
+  .notes-editor {
+    background: #1c1c1e;
+  }
+
+  .notes-toolbar {
+    border-bottom-color: rgba(255, 255, 255, 0.06);
+  }
+
+  .notes-toolbar-btn {
+    color: #98989d;
+  }
+
+  .notes-toolbar-btn:hover {
+    background: rgba(255, 255, 255, 0.08);
+    color: #f5f5f7;
+  }
+
+  .notes-toolbar-btn:active {
+    background: rgba(255, 255, 255, 0.12);
+  }
+
+  .notes-editor-title input {
+    background: transparent !important;
+    color: #f5f5f7 !important;
+  }
+
+  .notes-editor-content {
+    background: transparent !important;
+    color: #f5f5f7 !important;
+  }
+
+  .notes-edit-time {
+    color: #636366;
+  }
+
+  .notes-delete-btn {
+    color: #98989d;
+  }
+
+  .notes-delete-btn:hover {
+    background: rgba(255, 255, 255, 0.08);
+    color: #ff6b6b;
+  }
+}

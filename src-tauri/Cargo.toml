@@ -1,0 +1,23 @@
+[package]
+name = "blackbox"
+version = "0.1.0"
+description = "小黑百宝箱 - A versatile toolbox"
+authors = ["you"]
+edition = "2021"
+
+[lib]
+name = "blackbox_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = [] }
+tauri-plugin-opener = "2"
+tauri-plugin-sql = { version = "2", features = ["sqlite"] }
+tauri-plugin-store = "2"
+tauri-plugin-fs = "2"
+tauri-plugin-dialog = "2"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"

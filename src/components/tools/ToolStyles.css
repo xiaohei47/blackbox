@@ -1,0 +1,138 @@
+/* ============ Shared Tool Component Styles ============ */
+
+.tool-panel {
+  max-width: 800px;
+}
+
+.tool-title {
+  font-size: 20px;
+  font-weight: 600;
+  color: #1d1d1f;
+  margin: 0 0 4px;
+}
+
+.tool-desc {
+  font-size: 13px;
+  color: #8e8e93;
+  margin: 0 0 16px;
+}
+
+/* ============ Input / Output Textareas ============ */
+
+.tool-input,
+.tool-output {
+  font-family: "SF Mono", "Fira Code", "Cascadia Code", "JetBrains Mono",
+    Menlo, Consolas, monospace !important;
+  font-size: 13px !important;
+  line-height: 1.6 !important;
+  border-radius: 8px !important;
+  resize: vertical;
+}
+
+.tool-input {
+  min-height: 100px;
+}
+
+.tool-output {
+  min-height: 100px;
+  background: #f5f5f7 !important;
+  cursor: default;
+}
+
+.tool-output:focus {
+  outline: none !important;
+  box-shadow: none !important;
+}
+
+.tool-output-hash {
+  font-size: 14px !important;
+  word-break: break-all;
+}
+
+/* ============ Action Buttons ============ */
+
+.tool-actions {
+  display: flex;
+  gap: 8px;
+  padding: 10px 0;
+  flex-wrap: wrap;
+}
+
+/* ============ Options Row ============ */
+
+.tool-options-row {
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+}
+
+.tool-options {
+  margin-bottom: 12px;
+}
+
+.tool-opt-label {
+  display: block;
+  font-size: 12px;
+  font-weight: 500;
+  color: #6e6e73;
+  margin-bottom: 4px;
+}
+
+/* ============ Field ============ */
+
+.tool-field {
+  margin-bottom: 12px;
+}
+
+/* ============ Status / Error ============ */
+
+.tool-status {
+  margin-top: 6px;
+  font-size: 13px;
+  color: #34c759;
+}
+
+.tool-error {
+  margin-top: 8px;
+  padding: 8px 12px;
+  background: #fff0f0;
+  border-radius: 6px;
+  font-size: 13px;
+  color: #d32f2f;
+  font-family: "SF Mono", Consolas, monospace;
+  white-space: pre-wrap;
+}
+
+/* ============ Dark Mode ============ */
+
+@media (prefers-color-scheme: dark) {
+  .tool-title {
+    color: #f5f5f7;
+  }
+
+  .tool-input {
+    background: #2c2c2e !important;
+    color: #f5f5f7 !important;
+    border-color: rgba(255, 255, 255, 0.1) !important;
+  }
+
+  .tool-output {
+    background: #222 !important;
+    color: #f5f5f7 !important;
+    border-color: rgba(255, 255, 255, 0.1) !important;
+  }
+
+  .tool-error {
+    background: rgba(211, 47, 47, 0.15);
+    color: #ff6b6b;
+  }
+
+  .tool-status {
+    color: #30d158;
+  }
+
+  .tool-opt-label {
+    color: #98989d;
+  }
+}
