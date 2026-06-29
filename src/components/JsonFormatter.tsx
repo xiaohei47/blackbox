@@ -80,9 +80,6 @@ const JsonFormatter: React.FC = () => {
   return (
     <div className="json-formatter">
       <h3 className="json-formatter-title">JSON 格式化</h3>
-      <p className="json-formatter-desc">
-        粘贴 JSON 文本，格式化或压缩。快捷键：<kbd>Ctrl</kbd>+<kbd>Enter</kbd>
-      </p>
 
       <TextArea
         className="json-input"

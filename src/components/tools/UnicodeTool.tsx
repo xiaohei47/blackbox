@@ -49,7 +49,6 @@ const UnicodeTool: React.FC = () => {
   return (
     <div className="tool-panel">
       <h3 className="tool-title">Unicode 编解码</h3>
-      <p className="tool-desc">将文本与 Unicode 转义序列（\uXXXX）互相转换</p>
       <TextArea className="tool-input" placeholder="在此输入文本或 \\u 转义序列..." value={input} onChange={(e) => setInput(e.target.value)} rows={6} spellCheck={false} />
       <div className="tool-actions">
         <Button type="primary" icon={<ThunderboltOutlined />} onClick={handleEncode}>编码</Button>

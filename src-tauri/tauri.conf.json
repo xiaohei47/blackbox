@@ -14,8 +14,8 @@
     "windows": [
       {
         "title": "小黑百宝箱",
-        "width": 1200,
-        "height": 800
+        "width": 1000,
+        "height": 680
       }
     ],
     "security": {

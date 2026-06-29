@@ -172,7 +172,6 @@ const AesTool: React.FC = () => {
   return (
     <div className="tool-panel">
       <h3 className="tool-title">AES 加密/解密</h3>
-      <p className="tool-desc">使用 AES 算法加密或解密文本，支持 CBC / CTR / GCM 模式</p>
 
       <div className="tool-options-row">
         <div className="tool-options">

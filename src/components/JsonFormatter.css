@@ -6,22 +6,7 @@
   font-size: 20px;
   font-weight: 600;
   color: #1d1d1f;
-  margin: 0 0 4px;
-}
-
-.json-formatter-desc {
-  font-size: 13px;
-  color: #8e8e93;
   margin: 0 0 16px;
-}
-
-.json-formatter-desc kbd {
-  padding: 1px 5px;
-  font-size: 12px;
-  font-family: inherit;
-  background: rgba(0, 0, 0, 0.06);
-  border-radius: 4px;
-  border: 1px solid rgba(0, 0, 0, 0.1);
 }
 
 /* ============ Input / Output Textareas ============ */
@@ -82,12 +67,6 @@
 
 @media (prefers-color-scheme: dark) {
   .json-formatter-title {
-    color: #f5f5f7;
-  }
-
-  .json-formatter-desc kbd {
-    background: rgba(255, 255, 255, 0.1);
-    border-color: rgba(255, 255, 255, 0.15);
     color: #f5f5f7;
   }
 

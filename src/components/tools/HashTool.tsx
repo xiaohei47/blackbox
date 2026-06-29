@@ -67,7 +67,6 @@ const HashTool: React.FC = () => {
   return (
     <div className="tool-panel">
       <h3 className="tool-title">哈希计算</h3>
-      <p className="tool-desc">支持 MD5、SHA1、SHA256、SHA384、SHA512，输入即自动计算</p>
 
       <div className="tool-options">
         <label className="tool-opt-label">算法</label>

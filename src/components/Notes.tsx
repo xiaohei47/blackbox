@@ -1,12 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
-import { Input, Empty, Popconfirm, message } from "antd";
-import {
-  DeleteOutlined,
-  PictureOutlined,
-  PaperClipOutlined,
-} from "@ant-design/icons";
-import { open } from "@tauri-apps/plugin-dialog";
-import { invoke } from "@tauri-apps/api/core";
+import { Input, Empty } from "antd";
+import { appDataDir } from "@tauri-apps/api/path";
 import type { Note } from "../notes-repo";
 import {
   loadNotes,
@@ -17,8 +11,8 @@ import {
 } from "../notes-repo";
 import type { Folder, FolderNode } from "../folders-repo";
 import { loadFolders, buildTree } from "../folders-repo";
-import { getDb } from "../database";
 import FolderTree from "./FolderTree";
+import RichEditor from "./RichEditor";
 import "./Notes.css";
 
 function formatTime(ts: number): string {
@@ -30,8 +24,6 @@ function formatTime(ts: number): string {
   const mi = String(d.getMinutes()).padStart(2, "0");
   return `${y}-${mo}-${day} ${h}:${mi}`;
 }
-
-const { TextArea } = Input;
 
 const Notes: React.FC = () => {
   // ── List data (updated on save, drives the tree) ──
@@ -56,6 +48,12 @@ const Notes: React.FC = () => {
   // Keep ref in sync with state
   useEffect(() => { activeIdRef.current = activeId; }, [activeId]);
 
+  // ── App data dir for image paste ──
+  const [appDataDirPath, setAppDataDirPath] = useState("");
+  useEffect(() => {
+    appDataDir().then(setAppDataDirPath);
+  }, []);
+
   // ── Data loading ──
   const refreshFolders = useCallback(async () => {
     const folders: Folder[] = await loadFolders();
@@ -66,12 +64,11 @@ const Notes: React.FC = () => {
   }, []);
 
   const loadAllNotes = useCallback(async () => {
-    const all = await loadNotes(selectedFolderId);
+    const all = await loadNotes();
     setNotes(all);
-  }, [selectedFolderId]);
+  }, []);
 
   useEffect(() => { refreshFolders(); loadAllNotes(); }, []);
-  useEffect(() => { loadAllNotes(); }, [selectedFolderId, loadAllNotes]);
 
   // ── Save helpers ──
   async function flushPendingSave() {
@@ -147,12 +144,12 @@ const Notes: React.FC = () => {
   const handleFinishRenameNote = useCallback(
     async (noteId: string, title: string) => {
       const t = title.trim() || "未命名笔记";
-      setRenamingNoteId(null);
-      await updateNote(noteId, { title: t });
       setNotes((prev) =>
         prev.map((n) => (n.id === noteId ? { ...n, title: t } : n)),
       );
       if (activeId === noteId) setDraftTitle(t);
+      setRenamingNoteId(null);
+      await updateNote(noteId, { title: t });
     },
     [activeId],
   );
@@ -188,42 +185,14 @@ const Notes: React.FC = () => {
     [],
   );
 
-  const handleAttachFile = useCallback(
-    async (imageOnly: boolean) => {
-      const id = activeIdRef.current;
-      if (!id) return;
-      const filters = imageOnly
-        ? [{ name: "图片", extensions: ["png", "jpg", "jpeg", "gif", "webp", "bmp", "svg"] as string[] }]
-        : [{ name: "所有文件", extensions: ["*"] as string[] }];
-
-      const selected = await open({ multiple: false, filters });
-      if (!selected) return;
-
-      try {
-        const result = await invoke<{
-          storage_name: string; original_name: string; mime_type: string; file_size: number;
-        }>("import_note_file", { sourcePath: selected, noteId: id });
-
-        const db = await getDb();
-        await db.execute(
-          "INSERT INTO note_files (id, note_id, file_name, original_name, mime_type, file_size) VALUES ($1, $2, $3, $4, $5, $6)",
-          [crypto.randomUUID(), id, result.storage_name, result.original_name, result.mime_type, result.file_size],
-        );
-
-        const ref = result.mime_type.startsWith("image/")
-          ? `\n![${result.original_name}](file://${result.storage_name})\n`
-          : `\n[${result.original_name}](file://${result.storage_name})\n`;
-
-        setDraftContent((prev) => prev + ref);
-        pendingRef.current = { ...pendingRef.current, content: draftContent + ref };
-        scheduleSave();
-        message.success(`已添加 ${result.original_name}`);
-      } catch (err) {
-        message.error("文件导入失败");
-        console.error(err);
-      }
+  const handleEditorUpdate = useCallback(
+    (html: string) => {
+      setDraftContent(html);
+      setDraftUpdatedAt(Date.now());
+      pendingRef.current = { ...pendingRef.current, content: html };
+      scheduleSave();
     },
-    [draftContent],
+    [],
   );
 
   return (
@@ -236,10 +205,12 @@ const Notes: React.FC = () => {
         selectedNoteId={activeId}
         renamingNoteId={renamingNoteId}
         noteCounts={noteCounts}
+        onStartRenameNote={setRenamingNoteId}
         onSelectFolder={handleFolderSelect}
         onSelectNote={handleNoteSelect}
         onCreateNote={handleCreate}
         onFinishRenameNote={handleFinishRenameNote}
+        onDeleteNote={handleDelete}
         onRefresh={refreshFolders}
       />
 
@@ -250,15 +221,6 @@ const Notes: React.FC = () => {
           </div>
         ) : (
           <>
-            <div className="notes-toolbar">
-              <button className="notes-toolbar-btn" title="插入图片" onClick={() => handleAttachFile(true)}>
-                <PictureOutlined /> 图片
-              </button>
-              <button className="notes-toolbar-btn" title="附加文件" onClick={() => handleAttachFile(false)}>
-                <PaperClipOutlined /> 文件
-              </button>
-            </div>
-
             <div className="notes-editor-header">
               <Input
                 className="notes-editor-title"
@@ -268,19 +230,14 @@ const Notes: React.FC = () => {
                 onChange={(e) => handleChange("title", e.target.value)}
               />
               <span className="notes-edit-time">{formatTime(draftUpdatedAt)}</span>
-              <Popconfirm title="确定删除这篇笔记？" onConfirm={() => handleDelete(activeId)} okText="删除" cancelText="取消">
-                <button className="notes-delete-btn" title="删除">
-                  <DeleteOutlined />
-                </button>
-              </Popconfirm>
             </div>
 
-            <TextArea
-              className="notes-editor-content"
-              placeholder="开始写点什么..."
-              variant="borderless"
-              value={draftContent}
-              onChange={(e) => handleChange("content", e.target.value)}
+            <RichEditor
+              key={activeId}
+              content={draftContent}
+              noteId={activeId}
+              appDataDir={appDataDirPath}
+              onUpdate={handleEditorUpdate}
             />
           </>
         )}

@@ -78,7 +78,6 @@ const HmacTool: React.FC = () => {
   return (
     <div className="tool-panel">
       <h3 className="tool-title">HMAC 签名</h3>
-      <p className="tool-desc">使用密钥对文本进行 HMAC 签名，输入即自动计算</p>
 
       <div className="tool-options">
         <label className="tool-opt-label">算法</label>

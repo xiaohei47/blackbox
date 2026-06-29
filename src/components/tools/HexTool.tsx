@@ -47,7 +47,6 @@ const HexTool: React.FC = () => {
   return (
     <div className="tool-panel">
       <h3 className="tool-title">Hex 编解码</h3>
-      <p className="tool-desc">在文本与十六进制编码之间互相转换</p>
       <TextArea className="tool-input" placeholder="在此输入文本或十六进制..." value={input} onChange={(e) => setInput(e.target.value)} rows={6} spellCheck={false} />
       <div className="tool-actions">
         <Button type="primary" icon={<ThunderboltOutlined />} onClick={handleEncode}>文本 → Hex</Button>

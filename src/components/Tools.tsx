@@ -54,7 +54,6 @@ const Tools: React.FC = () => {
   return (
     <div className="tools-layout">
       <aside className="tools-nav">
-        <h2 className="tools-nav-title">工具</h2>
         <div className="tools-nav-list">
           {toolCategories.map((cat) => (
             <React.Fragment key={cat.label}>

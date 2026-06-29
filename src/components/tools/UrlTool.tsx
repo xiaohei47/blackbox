@@ -33,7 +33,6 @@ const UrlTool: React.FC = () => {
   return (
     <div className="tool-panel">
       <h3 className="tool-title">URL 编解码</h3>
-      <p className="tool-desc">对 URL 中的特殊字符进行百分比编码/解码</p>
       <TextArea className="tool-input" placeholder="在此输入文本或 URL 编码..." value={input} onChange={(e) => setInput(e.target.value)} rows={6} spellCheck={false} />
       <div className="tool-actions">
         <Button type="primary" icon={<ThunderboltOutlined />} onClick={handleEncode}>编码</Button>

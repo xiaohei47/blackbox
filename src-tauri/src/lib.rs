@@ -70,6 +70,47 @@ async fn import_note_file(
     })
 }
 
+#[tauri::command]
+async fn save_pasted_image(
+    app: tauri::AppHandle,
+    note_id: String,
+    data: Vec<u8>,
+    ext: String,
+) -> Result<ImportedFile, String> {
+    let file_size = data.len() as u64;
+    let original_name = format!("pasted_image.{}", ext);
+
+    let app_dir = app.path().app_data_dir().map_err(|e| e.to_string())?;
+    let note_dir = app_dir.join("files").join(&note_id);
+    std::fs::create_dir_all(&note_dir).map_err(|e| e.to_string())?;
+
+    let ts = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap()
+        .as_millis();
+    let short_id: String = note_id.chars().take(8).collect();
+    let storage_name = format!("pasted_{}_{}.{}", ts, short_id, ext);
+    let dest = note_dir.join(&storage_name);
+    std::fs::write(&dest, &data).map_err(|e| e.to_string())?;
+
+    let mime_type = match ext.as_str() {
+        "png" => "image/png",
+        "jpg" | "jpeg" => "image/jpeg",
+        "gif" => "image/gif",
+        "webp" => "image/webp",
+        "bmp" => "image/bmp",
+        _ => "image/png",
+    }
+    .to_string();
+
+    Ok(ImportedFile {
+        storage_name,
+        original_name,
+        mime_type,
+        file_size,
+    })
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -82,7 +123,7 @@ pub fn run() {
         .plugin(tauri_plugin_store::Builder::default().build())
         .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_dialog::init())
-        .invoke_handler(tauri::generate_handler![import_note_file])
+        .invoke_handler(tauri::generate_handler![import_note_file, save_pasted_image])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }
