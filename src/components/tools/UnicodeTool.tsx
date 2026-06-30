@@ -1,16 +1,17 @@
-import React, { useState, useCallback } from "react";
+import React, { useCallback } from "react";
 import { Input, Button, message } from "antd";
 import {
   ThunderboltOutlined,
   CopyOutlined,
   DeleteOutlined,
 } from "@ant-design/icons";
+import { useToolState } from "../../hooks/useToolState";
+import { errMsg } from "../../utils/bytes";
 
 const { TextArea } = Input;
 
 const UnicodeTool: React.FC = () => {
-  const [input, setInput] = useState("");
-  const [output, setOutput] = useState("");
+  const { input, setInput, output, setOutput, handleCopy, handleClear } = useToolState();
 
   const handleEncode = useCallback(() => {
     if (!input) { message.warning("请输入内容"); return; }
@@ -24,8 +25,8 @@ const UnicodeTool: React.FC = () => {
           })
           .join(""),
       );
-    } catch (e) { setOutput("编码失败：" + (e instanceof Error ? e.message : String(e))); }
-  }, [input]);
+    } catch (e) { setOutput("编码失败：" + errMsg(e)); }
+  }, [input, setOutput]);
 
   const handleDecode = useCallback(() => {
     if (!input) { message.warning("请输入内容"); return; }
@@ -36,15 +37,7 @@ const UnicodeTool: React.FC = () => {
         ),
       );
     } catch { setOutput("解码失败：无效的 Unicode 转义序列"); }
-  }, [input]);
-
-  const handleCopy = useCallback(async () => {
-    if (!output) { message.warning("没有可复制的内容"); return; }
-    try { await navigator.clipboard.writeText(output); message.success("已复制"); }
-    catch { message.error("复制失败"); }
-  }, [output]);
-
-  const handleClear = useCallback(() => { setInput(""); setOutput(""); }, []);
+  }, [input, setOutput]);
 
   return (
     <div className="tool-panel">

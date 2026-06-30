@@ -6,12 +6,16 @@ import {
   Typography,
   message,
   Alert,
+  Switch,
+  Tooltip,
 } from "antd";
 import {
+  EditOutlined,
   SyncOutlined,
   CloudServerOutlined,
   CheckCircleOutlined,
   CloseCircleOutlined,
+  QuestionCircleOutlined,
 } from "@ant-design/icons";
 import type { WebdavConfig } from "../settings-store";
 import {
@@ -21,23 +25,25 @@ import {
   type SyncConfig,
 } from "../settings-store";
 import { testWebdavConnection, syncWithWebdav } from "../webdav-sync";
+import { getAutoSave, setAutoSave } from "../settings-repo";
 import "./Settings.css";
 
 const { Text } = Typography;
 
-interface SettingsItem {
+interface SettingsCategory {
   key: string;
   icon: React.ReactNode;
   label: string;
 }
 
-const settingsItems: SettingsItem[] = [
-  { key: "sync", icon: <SyncOutlined />, label: "同步设置" },
+const categories: SettingsCategory[] = [
+  { key: "note", icon: <EditOutlined />, label: "笔记设置" },
 ];
 
 const AppSettings: React.FC = () => {
-  const [activeKey, setActiveKey] = useState("sync");
+  const [activeCategory, setActiveCategory] = useState("note");
   const [syncConfig, setSyncConfigState] = useState<SyncConfig | null>(null);
+  const [autoSave, setAutoSaveState] = useState(true);
   const [webdavUrl, setWebdavUrl] = useState("");
   const [webdavUser, setWebdavUser] = useState("");
   const [webdavPass, setWebdavPass] = useState("");
@@ -49,8 +55,9 @@ const AppSettings: React.FC = () => {
     "idle" | "ok" | "fail"
   >("idle");
 
-  // Load config on mount
+  // Load configs on mount
   useEffect(() => {
+    getAutoSave().then(setAutoSaveState);
     getSyncConfig().then((cfg) => {
       setSyncConfigState(cfg);
       setSyncMethod(cfg.method);
@@ -131,20 +138,24 @@ const AppSettings: React.FC = () => {
     }
   };
 
+  const handleAutoSaveToggle = async (val: boolean) => {
+    setAutoSaveState(val);
+    await setAutoSave(val);
+  };
+
   return (
     <div className="settings-layout">
-      {/* Left nav */}
+      {/* Left category nav */}
       <aside className="settings-nav">
-        <h2 className="settings-nav-title">设置</h2>
         <div className="settings-nav-list">
-          {settingsItems.map((item) => (
+          {categories.map((cat) => (
             <button
-              key={item.key}
-              className={`settings-nav-item${item.key === activeKey ? " active" : ""}`}
-              onClick={() => setActiveKey(item.key)}
+              key={cat.key}
+              className={`settings-nav-item${cat.key === activeCategory ? " active" : ""}`}
+              onClick={() => setActiveCategory(cat.key)}
             >
-              <span className="settings-nav-icon">{item.icon}</span>
-              <span>{item.label}</span>
+              <span className="settings-nav-icon">{cat.icon}</span>
+              <span>{cat.label}</span>
             </button>
           ))}
         </div>
@@ -152,101 +163,115 @@ const AppSettings: React.FC = () => {
 
       {/* Content */}
       <main className="settings-content">
-        {activeKey === "sync" && (
-          <div className="settings-section">
-            <h3 className="settings-section-title">同步设置</h3>
-            <p className="settings-section-desc">
-              选择同步方式并将笔记数据同步到远程服务器
-            </p>
-
-            <div className="settings-field">
-              <label className="settings-label">同步方式</label>
-              <Select
-                value={syncMethod}
-                onChange={setSyncMethod}
-                style={{ width: 240 }}
-                options={[
-                  { value: "webdav", label: "WebDAV" },
-                  { value: "none", label: "关闭同步", disabled: true },
-                ]}
-              />
+        {activeCategory === "note" && (
+          <>
+            <div className="settings-section">
+              <div className="settings-field">
+                <label className="settings-label">
+                  自动保存
+                  <Tooltip title="关闭后需按 Ctrl+S 手动保存笔记">
+                    <QuestionCircleOutlined className="settings-label-tip" />
+                  </Tooltip>
+                </label>
+                <div><Switch checked={autoSave} onChange={handleAutoSaveToggle} /></div>
+              </div>
             </div>
 
-            {syncMethod === "webdav" && (
-              <div className="settings-webdav">
-                <div className="settings-field">
-                  <label className="settings-label">服务器地址</label>
-                  <Input
-                    placeholder="https://example.com/remote.php/dav/files/user/"
-                    value={webdavUrl}
-                    onChange={(e) => setWebdavUrl(e.target.value)}
-                  />
-                </div>
-
-                <div className="settings-field">
-                  <label className="settings-label">用户名</label>
-                  <Input
-                    placeholder="用户名"
-                    value={webdavUser}
-                    onChange={(e) => setWebdavUser(e.target.value)}
-                  />
-                </div>
-
-                <div className="settings-field">
-                  <label className="settings-label">密码</label>
-                  <Input.Password
-                    placeholder="密码"
-                    value={webdavPass}
-                    onChange={(e) => setWebdavPass(e.target.value)}
-                  />
-                </div>
-
-                <div className="settings-actions">
-                  <Button
-                    onClick={handleTestConnection}
-                    loading={testing}
-                    icon={<CloudServerOutlined />}
-                  >
-                    测试连接
-                  </Button>
-                  <Button
-                    type="primary"
-                    onClick={handleSync}
-                    loading={syncing}
-                    icon={<SyncOutlined />}
-                  >
-                    立即同步
-                  </Button>
-                </div>
-
-                {connectionStatus !== "idle" && (
-                  <Alert
-                    className="settings-alert"
-                    type={connectionStatus === "ok" ? "success" : "error"}
-                    showIcon
-                    icon={
-                      connectionStatus === "ok" ? (
-                        <CheckCircleOutlined />
-                      ) : (
-                        <CloseCircleOutlined />
-                      )
-                    }
-                    message={
-                      connectionStatus === "ok"
-                        ? "服务器连接正常"
-                        : "连接测试失败，请检查配置"
-                    }
-                  />
-                )}
-
-                <div className="settings-last-sync">
-                  <Text type="secondary">
-                    上次同步：{formatTime(lastSyncDisplay)}
-                  </Text>
-                </div>
+            <div className="settings-section">
+              <div className="settings-field">
+                <label className="settings-label">
+                  同步方式
+                  <Tooltip title="选择同步方式并将笔记数据同步到远程服务器">
+                    <QuestionCircleOutlined className="settings-label-tip" />
+                  </Tooltip>
+                </label>
+                <Select
+                  value={syncMethod}
+                  onChange={setSyncMethod}
+                  style={{ width: 240 }}
+                  options={[
+                    { value: "webdav", label: "WebDAV" },
+                    { value: "none", label: "关闭同步" },
+                  ]}
+                />
               </div>
-            )}
-          </div>
+
+              {syncMethod === "webdav" && (
+            <div className="settings-webdav">
+              <div className="settings-field">
+                <label className="settings-label">服务器地址</label>
+                <Input
+                  placeholder="https://example.com/remote.php/dav/files/user/"
+                  value={webdavUrl}
+                  onChange={(e) => setWebdavUrl(e.target.value)}
+                />
+              </div>
+
+              <div className="settings-field">
+                <label className="settings-label">用户名</label>
+                <Input
+                  placeholder="用户名"
+                  value={webdavUser}
+                  onChange={(e) => setWebdavUser(e.target.value)}
+                />
+              </div>
+
+              <div className="settings-field">
+                <label className="settings-label">密码</label>
+                <Input.Password
+                  placeholder="密码"
+                  value={webdavPass}
+                  onChange={(e) => setWebdavPass(e.target.value)}
+                />
+              </div>
+
+              <div className="settings-actions">
+                <Button
+                  onClick={handleTestConnection}
+                  loading={testing}
+                  icon={<CloudServerOutlined />}
+                >
+                  测试连接
+                </Button>
+                <Button
+                  type="primary"
+                  onClick={handleSync}
+                  loading={syncing}
+                  icon={<SyncOutlined />}
+                >
+                  立即同步
+                </Button>
+              </div>
+
+              {connectionStatus !== "idle" && (
+                <Alert
+                  className="settings-alert"
+                  type={connectionStatus === "ok" ? "success" : "error"}
+                  showIcon
+                  icon={
+                    connectionStatus === "ok" ? (
+                      <CheckCircleOutlined />
+                    ) : (
+                      <CloseCircleOutlined />
+                    )
+                  }
+                  message={
+                    connectionStatus === "ok"
+                      ? "服务器连接正常"
+                      : "连接测试失败，请检查配置"
+                  }
+                />
+              )}
+
+              <div className="settings-last-sync">
+                <Text type="secondary">
+                  上次同步：{formatTime(lastSyncDisplay)}
+                </Text>
+              </div>
+            </div>
+          )}
+            </div>
+          </>
         )}
       </main>
     </div>

@@ -160,22 +160,6 @@ body,
   padding: 40px 0 0 0;
 }
 
-.app-content h1 {
-  text-align: center;
-  margin-top: 20vh;
-  font-size: 2rem;
-  font-weight: 600;
-  color: #1d1d1f;
-  letter-spacing: -0.02em;
-}
-
-.app-content p {
-  text-align: center;
-  color: #8e8e93;
-  margin-top: 8px;
-  font-size: 15px;
-}
-
 /* ============ Dark Mode ============ */
 
 @media (prefers-color-scheme: dark) {
@@ -213,13 +197,5 @@ body,
 
   .topbar-time {
     color: #98989d;
-  }
-
-  .app-content h1 {
-    color: #f5f5f7;
-  }
-
-  .app-content p {
-    color: #8e8e93;
   }
 }

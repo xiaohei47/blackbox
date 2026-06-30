@@ -8,7 +8,7 @@ import {
   SafetyOutlined,
   LockOutlined,
 } from "@ant-design/icons";
-import JsonFormatter from "./JsonFormatter";
+import DiffTool from "./tools/DiffTool";
 import Base64Tool from "./tools/Base64Tool";
 import UrlTool from "./tools/UrlTool";
 import HexTool from "./tools/HexTool";
@@ -27,7 +27,9 @@ interface ToolCategory {
 const toolCategories: ToolCategory[] = [
   {
     label: "常用工具",
-    items: [{ key: "json", icon: <CodeOutlined />, label: "JSON 格式化" }],
+    items: [
+      { key: "diff", icon: <CodeOutlined />, label: "代码工具" },
+    ],
   },
   {
     label: "编解码",
@@ -49,7 +51,7 @@ const toolCategories: ToolCategory[] = [
 ];
 
 const Tools: React.FC = () => {
-  const [activeKey, setActiveKey] = useState("json");
+  const [activeKey, setActiveKey] = useState("diff");
 
   return (
     <div className="tools-layout">
@@ -74,7 +76,7 @@ const Tools: React.FC = () => {
       </aside>
 
       <main className="tools-content">
-        {activeKey === "json" && <JsonFormatter />}
+        {activeKey === "diff" && <DiffTool />}
         {activeKey === "base64" && <Base64Tool />}
         {activeKey === "url" && <UrlTool />}
         {activeKey === "hex" && <HexTool />}

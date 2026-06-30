@@ -11,6 +11,7 @@
   },
   "dependencies": {
     "@ant-design/icons": "^6.3.2",
+    "@monaco-editor/react": "^4.7.0",
     "@platejs/basic-nodes": "^53.0.0",
     "@platejs/code-block": "^53.0.0",
     "@platejs/indent": "^53.0.0",
@@ -23,6 +24,7 @@
     "@tauri-apps/plugin-sql": "^2.4.0",
     "@tauri-apps/plugin-store": "^2.4.3",
     "antd": "^6.5.0",
+    "monaco-editor": "^0.55.1",
     "platejs": "^53.2.4",
     "react": "^19.2.7",
     "react-dom": "^19.2.7"

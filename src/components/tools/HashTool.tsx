@@ -1,6 +1,8 @@
 import React, { useState, useCallback, useRef, useEffect } from "react";
 import { Input, Button, Select, message } from "antd";
 import { CopyOutlined, DeleteOutlined } from "@ant-design/icons";
+import { useToolState } from "../../hooks/useToolState";
+import { bytesToHex } from "../../utils/bytes";
 import { md5 } from "./md5";
 
 const { TextArea } = Input;
@@ -19,14 +21,11 @@ async function computeHash(algo: Algo, input: string): Promise<string> {
   if (algo === "md5") return md5(input);
   const name = algo.toUpperCase().replace("SHA", "SHA-");
   const buf = await crypto.subtle.digest(name, new TextEncoder().encode(input));
-  return Array.from(new Uint8Array(buf))
-    .map((b) => b.toString(16).padStart(2, "0"))
-    .join("");
+  return bytesToHex(buf);
 }
 
 const HashTool: React.FC = () => {
-  const [input, setInput] = useState("");
-  const [output, setOutput] = useState("");
+  const { input, setInput, output, setOutput, handleCopy, handleClear } = useToolState();
   const [algo, setAlgo] = useState<Algo>("md5");
   const [auto, setAuto] = useState(true);
   const timerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
@@ -56,13 +55,7 @@ const HashTool: React.FC = () => {
     setTimeout(() => setAuto(true), 100);
   }, [input, algo, run]);
 
-  const handleCopy = useCallback(async () => {
-    if (!output) { message.warning("没有可复制的内容"); return; }
-    try { await navigator.clipboard.writeText(output); message.success("已复制"); }
-    catch { message.error("复制失败"); }
-  }, [output]);
-
-  const handleClear = useCallback(() => { setInput(""); setOutput(""); }, []);
+  // handleClear from useToolState
 
   return (
     <div className="tool-panel">

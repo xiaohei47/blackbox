@@ -1,6 +1,8 @@
 import React, { useState, useCallback } from "react";
 import { Input, Button, Select, message } from "antd";
 import { CopyOutlined, DeleteOutlined } from "@ant-design/icons";
+import { useToolCopy } from "../../hooks/useToolCopy";
+import { bytesToHex, bytesFromHex, bytesToBase64, bytesFromBase64, errMsg } from "../../utils/bytes";
 
 const { TextArea } = Input;
 
@@ -25,40 +27,21 @@ const FORMAT_OPTIONS: { value: OutFormat; label: string }[] = [
   { value: "hex", label: "Hex" },
 ];
 
-function hex(buf: ArrayBuffer): string {
-  return Array.from(new Uint8Array(buf))
-    .map((b) => b.toString(16).padStart(2, "0"))
-    .join("");
-}
-
-function fromHex(s: string): Uint8Array {
-  const h = s.replace(/\s/g, "");
-  const bytes = new Uint8Array(h.length / 2);
-  for (let i = 0; i < bytes.length; i++) {
-    bytes[i] = parseInt(h.substr(i * 2, 2), 16);
-  }
-  return bytes;
-}
-
-function toBase64(buf: ArrayBuffer): string {
-  const bytes = new Uint8Array(buf);
-  let binary = "";
-  for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i]);
-  return btoa(binary);
-}
-
-function fromBase64(s: string): Uint8Array {
-  const binary = atob(s);
-  const bytes = new Uint8Array(binary.length);
-  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
-  return bytes;
-}
-
 function formatOutput(buf: ArrayBuffer, fmt: OutFormat): string {
-  return fmt === "hex" ? hex(buf) : toBase64(buf);
+  return fmt === "hex" ? bytesToHex(buf) : bytesToBase64(buf);
 }
 
-
+function getIv(mode: Mode, ivHex: string): Uint8Array {
+  if (ivHex) {
+    const iv = bytesFromHex(ivHex);
+    if (mode === "GCM" && iv.length !== 12) throw new Error("GCM 模式 IV 必须为 12 字节 (24 位十六进制)");
+    if (mode === "CBC" && iv.length !== 16) throw new Error("CBC 模式 IV 必须为 16 字节 (32 位十六进制)");
+    if (mode === "CTR" && iv.length !== 16) throw new Error("CTR 模式 IV 必须为 16 字节 (32 位十六进制)");
+    return iv;
+  }
+  if (mode === "GCM") return crypto.getRandomValues(new Uint8Array(12));
+  return crypto.getRandomValues(new Uint8Array(16));
+}
 
 async function getKey(
   password: string,
@@ -81,19 +64,6 @@ async function getKey(
   return crypto.subtle.importKey("raw", raw, algo, false, usage);
 }
 
-function getIv(mode: Mode, ivHex: string): Uint8Array {
-  if (ivHex) {
-    const iv = fromHex(ivHex);
-    if (mode === "GCM" && iv.length !== 12) throw new Error("GCM 模式 IV 必须为 12 字节 (24 位十六进制)");
-    if (mode === "CBC" && iv.length !== 16) throw new Error("CBC 模式 IV 必须为 16 字节 (32 位十六进制)");
-    if (mode === "CTR" && iv.length !== 16) throw new Error("CTR 模式 IV 必须为 16 字节 (32 位十六进制)");
-    return iv;
-  }
-  // Generate random IV
-  if (mode === "GCM") return crypto.getRandomValues(new Uint8Array(12));
-  return crypto.getRandomValues(new Uint8Array(16));
-}
-
 const AesTool: React.FC = () => {
   const [input, setInput] = useState("");
   const [password, setPassword] = useState("");
@@ -102,6 +72,7 @@ const AesTool: React.FC = () => {
   const [mode, setMode] = useState<Mode>("CBC");
   const [keySize, setKeySize] = useState<KeySize>(256);
   const [outFormat, setOutFormat] = useState<OutFormat>("base64");
+  const handleCopy = useToolCopy(output);
 
   const handleEncrypt = useCallback(async () => {
     if (!input) { message.warning("请输入要加密的内容"); return; }
@@ -121,10 +92,10 @@ const AesTool: React.FC = () => {
         result = await crypto.subtle.encrypt({ name: "AES-CBC", iv: ivBytes }, key, data);
       }
 
-      const ivHex = hex(ivBytes.buffer);
+      const ivHex = bytesToHex(ivBytes.buffer);
       setOutput(`IV: ${ivHex}\n数据: ${formatOutput(result, outFormat)}`);
     } catch (e) {
-      setOutput("加密失败：" + (e instanceof Error ? e.message : String(e)));
+      setOutput("加密失败：" + errMsg(e));
     }
   }, [input, password, iv, mode, keySize, outFormat]);
 
@@ -143,8 +114,8 @@ const AesTool: React.FC = () => {
       if (!ivHex) { message.warning("请提供 IV"); return; }
 
       const key = await getKey(password, keySize, mode, ["decrypt"]);
-      const ivBytes = fromHex(ivHex);
-      const data = outFormat === "hex" ? fromHex(cipherText) : fromBase64(cipherText);
+      const ivBytes = bytesFromHex(ivHex);
+      const data = outFormat === "hex" ? bytesFromHex(cipherText) : bytesFromBase64(cipherText);
 
       let plain: ArrayBuffer;
       if (mode === "GCM") {
@@ -160,12 +131,6 @@ const AesTool: React.FC = () => {
       setOutput("解密失败：请检查密码、IV 和密文是否正确");
     }
   }, [input, password, iv, mode, keySize, outFormat]);
-
-  const handleCopy = useCallback(async () => {
-    if (!output) { message.warning("没有可复制的内容"); return; }
-    try { await navigator.clipboard.writeText(output); message.success("已复制"); }
-    catch { message.error("复制失败"); }
-  }, [output]);
 
   const handleClear = useCallback(() => { setInput(""); setOutput(""); }, []);
 

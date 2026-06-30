@@ -1,6 +1,8 @@
 import React, { useState, useCallback, useRef, useEffect } from "react";
 import { Input, Button, Select, message } from "antd";
-import { CopyOutlined, DeleteOutlined } from "@ant-design/icons";
+import { ThunderboltOutlined, CopyOutlined, DeleteOutlined } from "@ant-design/icons";
+import { useToolState } from "../../hooks/useToolState";
+import { bytesToHex } from "../../utils/bytes";
 import { md5 } from "./md5";
 
 const { TextArea } = Input;
@@ -42,15 +44,12 @@ async function hmac(algo: Algo, key: string, data: string): Promise<string> {
     false, ["sign"],
   );
   const sig = await crypto.subtle.sign("HMAC", keyObj, enc.encode(data));
-  return Array.from(new Uint8Array(sig))
-    .map((b) => b.toString(16).padStart(2, "0"))
-    .join("").toUpperCase();
+  return bytesToHex(sig).toUpperCase();
 }
 
 const HmacTool: React.FC = () => {
-  const [input, setInput] = useState("");
+  const { input, setInput, output, setOutput, handleCopy } = useToolState();
   const [key, setKey] = useState("");
-  const [output, setOutput] = useState("");
   const [algo, setAlgo] = useState<Algo>("sha256");
   const autoRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
@@ -59,7 +58,7 @@ const HmacTool: React.FC = () => {
     try {
       setOutput(await hmac(a, k, val));
     } catch { setOutput("计算失败"); }
-  }, []);
+  }, [setOutput]);
 
   useEffect(() => {
     clearTimeout(autoRef.current);
@@ -67,13 +66,13 @@ const HmacTool: React.FC = () => {
     return () => clearTimeout(autoRef.current);
   }, [input, key, algo, run]);
 
-  const handleCopy = useCallback(async () => {
-    if (!output) { message.warning("没有可复制的内容"); return; }
-    try { await navigator.clipboard.writeText(output); message.success("已复制"); }
-    catch { message.error("复制失败"); }
-  }, [output]);
+  const handleClear = useCallback(() => { setInput(""); setKey(""); setOutput(""); }, [setInput, setOutput]);
 
-  const handleClear = useCallback(() => { setInput(""); setKey(""); setOutput(""); }, []);
+  const handleCompute = useCallback(() => {
+    if (!input) { message.warning("请输入内容"); return; }
+    if (!key) { message.warning("请输入密钥"); return; }
+    run(input, key, algo);
+  }, [input, key, algo, run]);
 
   return (
     <div className="tool-panel">
@@ -92,6 +91,7 @@ const HmacTool: React.FC = () => {
       <TextArea className="tool-input" placeholder="在此输入要签名的文本..." value={input} onChange={(e) => setInput(e.target.value)} rows={6} spellCheck={false} />
 
       <div className="tool-actions">
+        <Button type="primary" icon={<ThunderboltOutlined />} onClick={handleCompute}>计算</Button>
         <Button icon={<CopyOutlined />} onClick={handleCopy}>复制</Button>
         <Button icon={<DeleteOutlined />} onClick={handleClear}>清空</Button>
       </div>

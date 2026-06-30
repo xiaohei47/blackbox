@@ -13,10 +13,6 @@ export interface FolderNode {
   depth: number;
 }
 
-function generateId(): string {
-  return crypto.randomUUID();
-}
-
 interface FolderRow {
   id: string;
   name: string;
@@ -62,7 +58,7 @@ export async function createFolder(
   parentId: string | null = null,
 ): Promise<Folder> {
   const db = await getDb();
-  const id = generateId();
+  const id = crypto.randomUUID();
 
   // Get next sort_order for this parent
   let sortOrder = 0;
@@ -109,15 +105,4 @@ export async function deleteFolder(id: string): Promise<void> {
     );
   }
   await db.execute("DELETE FROM folders WHERE id = $1", [id]);
-}
-
-export async function moveFolder(
-  id: string,
-  newParentId: string | null,
-): Promise<void> {
-  const db = await getDb();
-  await db.execute("UPDATE folders SET parent_id = $1 WHERE id = $2", [
-    newParentId,
-    id,
-  ]);
 }

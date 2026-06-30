@@ -1,8 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
-import { Input, Empty, Drawer, Switch, message } from "antd";
-import { SettingOutlined } from "@ant-design/icons";
+import { Input, Empty, message } from "antd";
 import { appDataDir } from "@tauri-apps/api/path";
-import { getAutoSave, setAutoSave } from "../settings-repo";
+import { getAutoSave } from "../settings-repo";
 import type { Note } from "../notes-repo";
 import {
   loadNotes,
@@ -39,7 +38,6 @@ const Notes: React.FC = () => {
   const [activeId, setActiveId] = useState<string | null>(null);
   const [draftTitle, setDraftTitle] = useState("");
   const [draftContent, setDraftContent] = useState("");
-  const [draftUpdatedAt, setDraftUpdatedAt] = useState(0);
   const [renamingNoteId, setRenamingNoteId] = useState<string | null>(null);
 
   // ── Debounced auto-save ──
@@ -53,7 +51,6 @@ const Notes: React.FC = () => {
   // ── Auto-save setting ──
   const [autoSave, setAutoSaveState] = useState(true);
   const autoSaveRef = useRef(true);
-  const [settingsOpen, setSettingsOpen] = useState(false);
   useEffect(() => { autoSaveRef.current = autoSave; }, [autoSave]);
 
   // Load auto-save setting on mount
@@ -93,10 +90,11 @@ const Notes: React.FC = () => {
     if (p.title !== undefined) patch.title = p.title;
     if (p.content !== undefined) patch.content = p.content;
     await updateNote(id, patch);
+    const now = Date.now();
     // Sync tree data with the saved draft
     setNotes((prev) =>
       prev.map((n) =>
-        n.id === id ? { ...n, ...patch, updatedAt: Date.now() } : n,
+        n.id === id ? { ...n, ...patch, updatedAt: now } : n,
       ),
     );
   }
@@ -147,7 +145,6 @@ const Notes: React.FC = () => {
           if (n) {
             setDraftTitle(n.title);
             setDraftContent(n.content);
-            setDraftUpdatedAt(n.updatedAt);
           }
           return prev;
         });
@@ -207,7 +204,6 @@ const Notes: React.FC = () => {
       // Update draft (instant UI, no tree re-render)
       if (field === "title") setDraftTitle(value);
       else setDraftContent(value);
-      setDraftUpdatedAt(Date.now());
 
       // Queue debounced save
       pendingRef.current = { ...pendingRef.current, [field]: value };
@@ -219,7 +215,6 @@ const Notes: React.FC = () => {
   const handleEditorUpdate = useCallback(
     (html: string) => {
       setDraftContent(html);
-      setDraftUpdatedAt(Date.now());
       pendingRef.current = { ...pendingRef.current, content: html };
       if (autoSaveRef.current) scheduleSave();
     },
@@ -228,15 +223,7 @@ const Notes: React.FC = () => {
 
   // ── Dirty state (unsaved changes exist) ──
   const isDirty = pendingRef.current !== null;
-
-  const handleSettingsToggle = useCallback(async (val: boolean) => {
-    setAutoSaveState(val);
-    await setAutoSave(val);
-    // If turning auto-save back on and there are pending changes, flush them
-    if (val && pendingRef.current) {
-      scheduleSave();
-    }
-  }, []);
+  const activeNote = activeId ? notes.find((n) => n.id === activeId) : undefined;
 
   return (
     <div className="notes-layout">
@@ -272,11 +259,8 @@ const Notes: React.FC = () => {
                 value={draftTitle}
                 onChange={(e) => handleChange("title", e.target.value)}
               />
-              <span className="notes-edit-time">{formatTime(draftUpdatedAt)}</span>
+              <span className="notes-edit-time">{formatTime(activeNote?.updatedAt ?? 0)}</span>
               {!autoSave && isDirty && <span className="notes-dirty-dot" />}
-              <button className="notes-settings-btn" title="设置" onClick={() => setSettingsOpen(true)}>
-                <SettingOutlined />
-              </button>
             </div>
 
             <RichEditor
@@ -289,19 +273,6 @@ const Notes: React.FC = () => {
           </>
         )}
       </main>
-
-      <Drawer
-        title="设置"
-        placement="right"
-        onClose={() => setSettingsOpen(false)}
-        open={settingsOpen}
-        width={280}
-      >
-        <div className="settings-item">
-          <span className="settings-item-label">自动保存</span>
-          <Switch checked={autoSave} onChange={handleSettingsToggle} />
-        </div>
-      </Drawer>
     </div>
   );
 };

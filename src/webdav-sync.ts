@@ -10,7 +10,7 @@ import {
 
 const SYNC_FILE = "myhome-sync.json";
 
-export interface SyncData {
+interface SyncData {
   version: number;
   syncedAt: string;
   notes: Array<{
@@ -32,7 +32,7 @@ export interface SyncData {
   }>;
 }
 
-export interface SyncResult {
+interface SyncResult {
   success: boolean;
   syncedAt: string;
   pulled: number;

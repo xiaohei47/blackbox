@@ -24,10 +24,6 @@ function rowToNote(row: NoteRow): Note {
   };
 }
 
-function generateId(): string {
-  return crypto.randomUUID();
-}
-
 function nowISO(): string {
   return new Date().toISOString();
 }
@@ -73,7 +69,7 @@ export async function countNotesByFolder(): Promise<Map<string, number>> {
 export async function createNote(folderId?: string | null): Promise<Note> {
   const db = await getDb();
   const now = nowISO();
-  const id = generateId();
+  const id = crypto.randomUUID();
   const note: NoteRow = {
     id,
     title: "未命名笔记",
@@ -134,18 +130,6 @@ export async function updateNote(
     `UPDATE notes SET ${sets.join(", ")} WHERE id = $${vals.length}`,
     vals,
   );
-}
-
-export async function moveNote(
-  noteId: string,
-  folderId: string | null,
-): Promise<void> {
-  const db = await getDb();
-  await db.execute("UPDATE notes SET folder_id = $1, updated_at = $2 WHERE id = $3", [
-    folderId,
-    nowISO(),
-    noteId,
-  ]);
 }
 
 export async function deleteNote(id: string): Promise<void> {
