@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useEffect, useRef } from "react";
-import { Button, Select, Segmented, message } from "antd";
+import { Button, Select, Segmented, Statistic, message } from "antd";
 import { DeleteOutlined, ThunderboltOutlined, CompressOutlined, ArrowUpOutlined, ArrowDownOutlined } from "@ant-design/icons";
 import "./DiffTool.css";
 
@@ -268,7 +268,7 @@ const DiffTool: React.FC = () => {
           />
           <div className="diff-toolbar-actions">
             {diffTotal > 0 && (
-              <span className="diff-count">共 {diffTotal} 处差异</span>
+              <Statistic className="diff-count" value={diffTotal} suffix="处差异" valueStyle={{ fontSize: 14 }} />
             )}
             <Button size="small" icon={<ArrowUpOutlined />} onClick={handlePrevDiff}>
               上一处
