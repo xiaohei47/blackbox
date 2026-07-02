@@ -1,6 +1,7 @@
-import React from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { toggleList } from "@platejs/list";
 import { toggleCodeBlock } from "@platejs/code-block";
+import { formatCodeBlock } from "@platejs/code-block";
 import {
   BoldOutlined,
   ItalicOutlined,
@@ -11,12 +12,29 @@ import {
   UnorderedListOutlined,
   OrderedListOutlined,
   MinusOutlined,
+  ThunderboltOutlined,
 } from "@ant-design/icons";
+
+const LANGUAGES = [
+  "plaintext", "javascript", "typescript", "html", "css", "json",
+  "python", "java", "c", "cpp", "csharp", "go", "rust", "swift",
+  "kotlin", "php", "ruby", "sql", "bash", "yaml", "xml", "markdown",
+];
 
 interface Props {
   editor: any;
   activeMarks: ReadonlySet<string>;
   activeBlock: string;
+}
+
+function getCodeBlockLang(editor: any): string {
+  try {
+    const entry = editor.api.block();
+    if (entry && entry[0].type === "code_block") return entry[0].lang || "plaintext";
+    const above = editor.api.above({ match: (n: any) => n.type === "code_block" });
+    if (above) return above[0].lang || "plaintext";
+  } catch {}
+  return "plaintext";
 }
 
 /* ── Component ── */
@@ -42,7 +60,44 @@ const FixedToolbar: React.FC<Props> = ({ editor, activeMarks, activeBlock }) => 
     editor.tf.insertNodes([{ type: "hr", children: [{ text: "" }] }]);
   };
 
+  const handleFormat = () => {
+    formatCodeBlock(editor, { element: editor.api.block()?.[0] });
+  };
+
+  const isCodeBlock = activeBlock === "code_block";
   const isList = activeBlock === "ul" || activeBlock === "ol";
+
+  // ── Language selector state ──
+  const [langOpen, setLangOpen] = useState(false);
+  const [currentLang, setCurrentLang] = useState("plaintext");
+  const langRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (isCodeBlock) setCurrentLang(getCodeBlockLang(editor));
+  }, [isCodeBlock, editor, activeMarks]);
+
+  useEffect(() => {
+    if (!langOpen) return;
+    const handler = (e: MouseEvent) => {
+      if (langRef.current && !langRef.current.contains(e.target as Node)) setLangOpen(false);
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [langOpen]);
+
+  const handleLangSelect = (lang: string) => {
+    try {
+      const entry = editor.api.block();
+      if (entry && entry[0].type === "code_block") {
+        editor.tf.setNodes({ lang }, { at: entry[1] });
+      } else {
+        const above = editor.api.above({ match: (n: any) => n.type === "code_block" });
+        if (above) editor.tf.setNodes({ lang }, { at: above[1] });
+      }
+    } catch {}
+    setCurrentLang(lang);
+    setLangOpen(false);
+  };
 
   return (
     <div className="fixed-toolbar" onMouseDown={(e) => e.preventDefault()}>
@@ -140,12 +195,51 @@ const FixedToolbar: React.FC<Props> = ({ editor, activeMarks, activeBlock }) => 
         <OrderedListOutlined />
       </button>
       <button
-        className={"fixed-toolbar-btn" + (activeBlock === "code_block" ? " active" : "")}
+        className={"fixed-toolbar-btn" + (isCodeBlock ? " active" : "")}
         onClick={handleCodeBlock}
         title="代码块"
       >
         <CodeOutlined />
       </button>
+
+      {isCodeBlock && (
+        <>
+          <div className="fixed-toolbar-divider" />
+          {/* ── Language selector ── */}
+          <div className="fixed-toolbar-lang" ref={langRef}>
+            <button
+              className="fixed-toolbar-btn lang-btn"
+              onClick={() => setLangOpen((v) => !v)}
+              title="选择语言"
+            >
+              <span className="lang-label">{currentLang}</span>
+              <span className="lang-arrow">▼</span>
+            </button>
+            {langOpen && (
+              <div className="lang-dropdown">
+                {LANGUAGES.map((l) => (
+                  <button
+                    key={l}
+                    className={"lang-option" + (l === currentLang ? " active" : "")}
+                    onClick={() => handleLangSelect(l)}
+                  >
+                    {l}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+          {/* ── Format button ── */}
+          <button
+            className="fixed-toolbar-btn icon-btn"
+            onClick={handleFormat}
+            title="格式化代码"
+          >
+            <ThunderboltOutlined />
+          </button>
+        </>
+      )}
+
       <button
         className="fixed-toolbar-btn"
         onClick={handleHR}

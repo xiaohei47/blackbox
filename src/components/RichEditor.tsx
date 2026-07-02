@@ -13,7 +13,11 @@ import { insertImage } from "@platejs/media";
 import { CodeBlockPlugin } from "@platejs/code-block/react";
 import { TrailingBlockPlugin, ExitBreakPlugin } from "@platejs/utils";
 import { invoke, convertFileSrc } from "@tauri-apps/api/core";
+import { createLowlight, common } from "lowlight";
 import FixedToolbar from "./FixedToolbar";
+
+const lowlight = createLowlight(common);
+(CodeBlockPlugin as any).options = { ...(CodeBlockPlugin as any).options, lowlight, defaultLanguage: "plaintext" };
 
 // ── HTML serialization (Slate JSON → HTML string) ──
 
@@ -60,7 +64,7 @@ function serializeNode(node: any): string {
     case "hr":
       return `<hr />`;
     case "code_block":
-      return `<pre><code>${children}</code></pre>`;
+      return `<pre><code${node.lang ? ` class="language-${node.lang}"` : ""}>${children}</code></pre>`;
     default:
       return `<p>${children}</p>`;
   }
@@ -88,9 +92,39 @@ function parseContent(content: string): any[] {
   if (trimmed.startsWith("<") || trimmed.includes("<")) {
     try {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const tempEditor = createPlateEditor({}) as any;
+      const tempEditor = createPlateEditor({
+        plugins: [BasicBlocksPlugin, BasicMarksPlugin, HorizontalRulePlugin, ListPlugin, CodeBlockPlugin],
+      }) as any;
       const fragment = deserializeHtml(tempEditor, { element: content });
-      if (fragment && fragment.length > 0) return fragment;
+      if (fragment && fragment.length > 0) {
+        // Restore lang from HTML class="language-xxx" on pre/code
+        const langMap = new Map<string, string>();
+        const langRe = /<pre[^>]*>.*?<code[^>]*class="language-(\w+)"[^>]*>/gis;
+        let m: RegExpExecArray | null;
+        let idx = 0;
+        for (const block of fragment) {
+          if (block.type === "code_block") {
+            langRe.lastIndex = 0;
+            m = langRe.exec(content);
+            if (m) {
+              langMap.set(String(idx), m[1]);
+              // Remove matched portion to find next
+              content = content.slice(m.index + m[0].length);
+            }
+            idx++;
+          }
+        }
+        langRe.lastIndex = 0;
+        idx = 0;
+        for (const block of fragment) {
+          if (block.type === "code_block") {
+            const lang = langMap.get(String(idx));
+            if (lang) block.lang = lang;
+            idx++;
+          }
+        }
+        return fragment;
+      }
     } catch {
       // fall through to plain text
     }
