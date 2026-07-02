@@ -40,6 +40,21 @@ const categories: SettingsCategory[] = [
   { key: "note", icon: <EditOutlined />, label: "笔记设置" },
 ];
 
+const PRESETS = [
+  { id: "custom", label: "自定义", url: "" },
+  { id: "jianguoyun", label: "坚果云", url: "https://dav.jianguoyun.com/dav/" },
+  { id: "nextcloud", label: "Nextcloud", url: "https://your-server/remote.php/dav/files/USERNAME/" },
+  { id: "synology", label: "群晖 NAS", url: "http://your-nas-ip:5005/" },
+];
+
+function detectPreset(url: string): string {
+  if (!url) return "custom";
+  if (url.includes("jianguoyun.com")) return "jianguoyun";
+  if (url.includes("remote.php/dav")) return "nextcloud";
+  if (url.includes(":5005")) return "synology";
+  return "custom";
+}
+
 const AppSettings: React.FC = () => {
   const [activeCategory, setActiveCategory] = useState("note");
   const [syncConfig, setSyncConfigState] = useState<SyncConfig | null>(null);
@@ -47,7 +62,9 @@ const AppSettings: React.FC = () => {
   const [webdavUrl, setWebdavUrl] = useState("");
   const [webdavUser, setWebdavUser] = useState("");
   const [webdavPass, setWebdavPass] = useState("");
+  const [webdavRemoteRoot, setWebdavRemoteRoot] = useState("");
   const [syncMethod, setSyncMethod] = useState("webdav");
+  const [presetId, setPresetId] = useState("custom");
   const [testing, setTesting] = useState(false);
   const [syncing, setSyncing] = useState(false);
   const [lastSyncDisplay, setLastSyncDisplay] = useState<string | null>(null);
@@ -64,6 +81,8 @@ const AppSettings: React.FC = () => {
       setWebdavUrl(cfg.webdav.url);
       setWebdavUser(cfg.webdav.username);
       setWebdavPass(cfg.webdav.password);
+      setWebdavRemoteRoot(cfg.webdav.remoteRoot ?? "");
+      setPresetId(detectPreset(cfg.webdav.url));
       setLastSyncDisplay(cfg.lastSyncAt);
     });
   }, []);
@@ -73,7 +92,7 @@ const AppSettings: React.FC = () => {
     const newCfg: SyncConfig = {
       ...syncConfig,
       method: syncMethod,
-      webdav: { url: webdavUrl, username: webdavUser, password: webdavPass },
+      webdav: { url: webdavUrl, username: webdavUser, password: webdavPass, remoteRoot: webdavRemoteRoot },
     };
     await setSyncConfig(newCfg);
     setSyncConfigState(newCfg);
@@ -91,6 +110,7 @@ const AppSettings: React.FC = () => {
       url: webdavUrl,
       username: webdavUser,
       password: webdavPass,
+      remoteRoot: webdavRemoteRoot,
     });
     setConnectionStatus(result.ok ? "ok" : "fail");
     if (result.ok) {
@@ -114,8 +134,13 @@ const AppSettings: React.FC = () => {
       url: webdavUrl,
       username: webdavUser,
       password: webdavPass,
+      remoteRoot: webdavRemoteRoot,
     };
-    const result = await syncWithWebdav(wc);
+    const result = await syncWithWebdav(
+      wc,
+      syncConfig?.lastSyncFolderIds,
+      syncConfig?.lastSyncNoteIds,
+    );
     setSyncing(false);
 
     if (result.success) {
@@ -199,11 +224,35 @@ const AppSettings: React.FC = () => {
               {syncMethod === "webdav" && (
             <div className="settings-webdav">
               <div className="settings-field">
+                <label className="settings-label">服务商</label>
+                <Select
+                  value={presetId}
+                  onChange={(v) => {
+                    setPresetId(v);
+                    const preset = PRESETS.find((p) => p.id === v);
+                    if (preset?.url) setWebdavUrl(preset.url);
+                  }}
+                  style={{ width: 240 }}
+                  options={PRESETS.map((p) => ({ value: p.id, label: p.label }))}
+                />
+              </div>
+
+              <div className="settings-field">
                 <label className="settings-label">服务器地址</label>
                 <Input
                   placeholder="https://example.com/remote.php/dav/files/user/"
                   value={webdavUrl}
                   onChange={(e) => setWebdavUrl(e.target.value)}
+                  onBlur={() => setPresetId(detectPreset(webdavUrl))}
+                />
+              </div>
+
+              <div className="settings-field">
+                <label className="settings-label">远程根目录</label>
+                <Input
+                  placeholder="留空默认 blackbox-sync"
+                  value={webdavRemoteRoot}
+                  onChange={(e) => setWebdavRemoteRoot(e.target.value)}
                 />
               </div>
 

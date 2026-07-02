@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import { Input, Empty, message } from "antd";
+import { EditOutlined } from "@ant-design/icons";
 import { appDataDir } from "@tauri-apps/api/path";
 import { getAutoSave } from "../settings-repo";
 import type { Note } from "../notes-repo";
@@ -13,6 +14,8 @@ import {
 import type { Folder, FolderNode } from "../folders-repo";
 import { loadFolders, buildTree } from "../folders-repo";
 import FolderTree from "./FolderTree";
+import { getSyncConfig } from "../settings-store";
+import { syncWithWebdav } from "../webdav-sync";
 import RichEditor from "./RichEditor";
 import "./Notes.css";
 
@@ -161,8 +164,8 @@ const Notes: React.FC = () => {
     switchToNote(noteId);
   }, [switchToNote]);
 
-  const handleCreate = useCallback(async () => {
-    const note = await createNote(selectedFolderId);
+  const handleCreate = useCallback(async (folderId?: string | null) => {
+    const note = await createNote(folderId ?? selectedFolderId);
     setNotes((prev) => [note, ...prev]);
     setRenamingNoteId(note.id);
     switchToNote(note.id);
@@ -197,6 +200,31 @@ const Notes: React.FC = () => {
     },
     [activeId, refreshFolders, switchToNote],
   );
+
+  const handleSync = useCallback(async () => {
+    try {
+      const cfg = await getSyncConfig();
+      if (!cfg.webdav.url || !cfg.webdav.username) {
+        message.info("请先在设置中配置 WebDAV 同步");
+        return;
+      }
+      message.loading({ content: "同步中...", key: "sync" });
+      const result = await syncWithWebdav(
+        cfg.webdav,
+        cfg.lastSyncFolderIds,
+        cfg.lastSyncNoteIds,
+      );
+      if (result.success) {
+        message.success({ content: `同步完成（上传 ${result.pushed} 项，下载 ${result.pulled} 项）`, key: "sync" });
+        refreshFolders();
+        loadAllNotes();
+      } else {
+        message.error({ content: `同步失败: ${result.error}`, key: "sync" });
+      }
+    } catch {
+      message.error({ content: "同步失败", key: "sync" });
+    }
+  }, [refreshFolders, loadAllNotes]);
 
   // ── Editor change (only touches draft state, not notes[]) ──
   const handleChange = useCallback(
@@ -242,6 +270,7 @@ const Notes: React.FC = () => {
         onFinishRenameNote={handleFinishRenameNote}
         onDeleteNote={handleDelete}
         onRefresh={refreshFolders}
+        onSync={handleSync}
       />
 
       <main className="notes-editor">
@@ -260,7 +289,7 @@ const Notes: React.FC = () => {
                 onChange={(e) => handleChange("title", e.target.value)}
               />
               <span className="notes-edit-time">{formatTime(activeNote?.updatedAt ?? 0)}</span>
-              {!autoSave && isDirty && <span className="notes-dirty-dot" />}
+              {!autoSave && isDirty && <EditOutlined style={{ fontSize: 12, color: "#ff9500" }} />}
             </div>
 
             <RichEditor

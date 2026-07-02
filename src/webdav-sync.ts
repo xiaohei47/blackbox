@@ -1,12 +1,10 @@
+import { invoke } from "@tauri-apps/api/core";
 import type { WebdavConfig } from "./settings-store";
 import type { Note } from "./notes-repo";
 import type { Folder } from "./folders-repo";
 import { loadNotes, updateNote, deleteNote } from "./notes-repo";
-import {
-  loadFolders,
-  createFolder,
-  deleteFolder,
-} from "./folders-repo";
+import { loadFolders, createFolder, deleteFolder } from "./folders-repo";
+import { setLastSyncIds } from "./settings-store";
 
 const SYNC_FILE = "myhome-sync.json";
 
@@ -43,88 +41,82 @@ interface SyncResult {
 function normalizeUrl(base: string): string {
   let url = base.trim();
   if (!url.endsWith("/")) url += "/";
-  // Ensure protocol
   if (!/^https?:\/\//i.test(url)) url = "https://" + url;
   return url;
 }
 
-function authHeader(username: string, password: string): string {
-  return "Basic " + btoa(`${username}:${password}`);
+function syncFileUrl(config: WebdavConfig): string {
+  const base = normalizeUrl(config.url);
+  const root = (config.remoteRoot || "blackbox-sync").replace(/^\/+|\/+$/g, "");
+  return root ? `${base}${root}/${SYNC_FILE}` : `${base}${SYNC_FILE}`;
 }
 
-/** Test WebDAV connection by fetching the root */
+/** Test WebDAV connection via Rust backend (bypasses CORS) */
 export async function testWebdavConnection(
   config: WebdavConfig,
 ): Promise<{ ok: boolean; message: string }> {
   try {
     const url = normalizeUrl(config.url);
-    const res = await fetch(url, {
-      method: "PROPFIND",
-      headers: {
-        Authorization: authHeader(config.username, config.password),
-        Depth: "0",
-      },
+    await invoke("webdav_test_connection", {
+      url,
+      username: config.username,
+      password: config.password,
     });
-
-    if (res.status === 207 || res.status === 200 || res.status === 404) {
-      return { ok: true, message: "连接成功" };
-    }
-    if (res.status === 401) {
-      return { ok: false, message: "认证失败，请检查用户名和密码" };
-    }
-    return {
-      ok: false,
-      message: `服务器返回 ${res.status} ${res.statusText}`,
-    };
+    return { ok: true, message: "连接成功" };
   } catch (err) {
     return {
       ok: false,
-      message: `无法连接: ${err instanceof Error ? err.message : String(err)}`,
+      message: typeof err === "string" ? err : "连接失败",
     };
   }
 }
 
-/** Download sync file from WebDAV */
+/** Download sync file from WebDAV via Rust backend */
 async function downloadSync(
   config: WebdavConfig,
 ): Promise<SyncData | null> {
-  const url = normalizeUrl(config.url);
-  const res = await fetch(url + SYNC_FILE, {
-    method: "GET",
-    headers: {
-      Authorization: authHeader(config.username, config.password),
-    },
+  const fullUrl = syncFileUrl(config);
+  const res = await invoke<{ body: string | null; status: number }>("webdav_get_text", {
+    url: fullUrl,
+    username: config.username,
+    password: config.password,
   });
-  if (res.status === 404) return null;
-  if (!res.ok)
-    throw new Error(`下载同步文件失败: ${res.status} ${res.statusText}`);
-  return res.json();
+  if (res.body === null) return null;
+  return JSON.parse(res.body);
 }
 
-/** Upload sync file to WebDAV */
+/** Upload sync file to WebDAV via Rust backend */
 async function uploadSync(
   config: WebdavConfig,
   data: SyncData,
 ): Promise<void> {
-  const url = normalizeUrl(config.url);
-  const res = await fetch(url + SYNC_FILE, {
-    method: "PUT",
-    headers: {
-      Authorization: authHeader(config.username, config.password),
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify(data),
+  const fullUrl = syncFileUrl(config);
+
+  // Try creating the remote directory first (MKCOL). No-op if it already exists.
+  const dirUrl = fullUrl.substring(0, fullUrl.lastIndexOf("/") + 1);
+  await invoke("webdav_mkcol", {
+    url: dirUrl,
+    username: config.username,
+    password: config.password,
+  }).catch(() => {
+    // Ignore mkcol errors — PUT will fail with a clear message if dir missing
   });
-  if (!res.ok)
-    throw new Error(`上传同步文件失败: ${res.status} ${res.statusText}`);
+
+  await invoke("webdav_put_text", {
+    url: fullUrl,
+    username: config.username,
+    password: config.password,
+    body: JSON.stringify(data),
+    contentType: "application/json",
+  });
 }
 
-/** Collect local data for sync */
+/** Collect local data for sync (includes archived notes) */
 async function collectLocalData(): Promise<{
   notes: Note[];
   folders: Folder[];
 }> {
-  const notes = await loadNotes();
+  const notes = await loadNotes(undefined, true);
   const folders = await loadFolders();
   return { notes, folders };
 }
@@ -159,53 +151,89 @@ function toSyncData(
 }
 
 /** Merge remote data into local */
-async function applyRemoteData(data: SyncData): Promise<number> {
+async function applyRemoteData(
+  data: SyncData,
+  lastSyncFolderIds: string[],
+  lastSyncNoteIds: string[],
+): Promise<number> {
   let count = 0;
 
-  // Merge folders
+  // ── Merge folders ──
   const localFolders = await loadFolders();
-  const localFolderMap = new Map(localFolders.map((f) => [f.id, f]));
+  const localFolderIds = new Set(localFolders.map((f) => f.id));
   const remoteFolderIds = new Set(data.folders.map((f) => f.id));
 
-  for (const rf of data.folders) {
-    const lf = localFolderMap.get(rf.id);
-    if (!lf) {
-      // New folder from remote
-      await createFolder(rf.name, rf.parentId);
+  // Collect IDs that were in the last sync
+  const wasSyncedFolder = new Set(lastSyncFolderIds);
+
+  // Delete folders that were in a previous sync but are no longer in remote
+  // (propagates remote deletions) AND no longer exist locally
+  for (const id of lastSyncFolderIds) {
+    if (!remoteFolderIds.has(id) && !localFolderIds.has(id)) {
+      // Was synced, now gone from remote AND from local → was deleted on both sides
+      // No action needed locally — it's already gone
+    } else if (wasSyncedFolder.has(id) && !remoteFolderIds.has(id) && localFolderIds.has(id)) {
+      // Was synced before, exists locally but not in remote → remotely deleted
+      // → propagate deletion locally
+      await deleteFolder(id);
       count++;
     }
   }
 
-  // Delete local folders that aren't in remote (if remote isn't empty)
-  if (data.folders.length > 0) {
-    for (const lf of localFolders) {
-      if (!remoteFolderIds.has(lf.id)) {
-        await deleteFolder(lf.id);
-      }
+  // Create remote folders not yet local, handling parentId dependencies.
+  // Don't pull back folders that were in last sync but no longer local (intentionally deleted)
+  const deletedLocalFolderIds = new Set(
+    lastSyncFolderIds.filter((id) => !localFolderIds.has(id)),
+  );
+  const created = new Set(localFolderIds);
+  let remaining = data.folders.filter(
+    (rf) => !localFolderIds.has(rf.id) && !deletedLocalFolderIds.has(rf.id),
+  );
+  for (let i = 0; i <= remaining.length && remaining.length > 0; i++) {
+    const batch = remaining.filter(
+      (rf) =>
+        !created.has(rf.id) &&
+        (rf.parentId === null || created.has(rf.parentId)),
+    );
+    if (batch.length === 0) break;
+    for (const rf of batch) {
+      await createFolder(rf.name, rf.parentId, rf.id);
+      created.add(rf.id);
+      count++;
+    }
+    remaining = remaining.filter((rf) => !created.has(rf.id));
+  }
+
+  // ── Merge notes: last-write-wins ──
+  const localNotes = await loadNotes(undefined, true);
+  const localNoteMap = new Map(localNotes.map((n) => [n.id, n]));
+  const remoteNoteIds = new Set(data.notes.map((n) => n.id));
+
+  const wasSyncedNote = new Set(lastSyncNoteIds);
+
+  // Delete notes that were in a previous sync but are no longer in remote
+  // AND still exist locally → remotely deleted, propagate
+  for (const id of lastSyncNoteIds) {
+    if (wasSyncedNote.has(id) && !remoteNoteIds.has(id) && localNoteMap.has(id)) {
+      await deleteNote(id);
+      count++;
     }
   }
 
-  // Merge notes: last-write-wins
-  const localNotes = await loadNotes();
-  const localNoteMap = new Map(localNotes.map((n) => [n.id, n]));
-
+  // Update notes where remote is newer.
+  // Don't pull back notes that were in last sync but no longer local (intentionally deleted)
   for (const rn of data.notes) {
     const ln = localNoteMap.get(rn.id);
+    if (!ln && wasSyncedNote.has(rn.id)) continue;
     if (!ln || rn.updatedAt > ln.updatedAt) {
-      // Remote is newer or doesn't exist locally → update local
-      await updateNote(rn.id, { title: rn.title, content: rn.content });
+      await updateNote(rn.id, {
+        title: rn.title,
+        content: rn.content,
+        folderId: rn.folderId,
+        color: rn.color,
+        is_pinned: rn.is_pinned,
+      });
       count++;
-    }
-  }
-
-  // Delete local notes not in remote (if remote has notes)
-  if (data.notes.length > 0) {
-    const remoteNoteIds = new Set(data.notes.map((n) => n.id));
-    for (const ln of localNotes) {
-      if (!remoteNoteIds.has(ln.id)) {
-        await deleteNote(ln.id);
-        count++;
-      }
     }
   }
 
@@ -215,6 +243,8 @@ async function applyRemoteData(data: SyncData): Promise<number> {
 /** Main sync function */
 export async function syncWithWebdav(
   config: WebdavConfig,
+  lastSyncFolderIds: string[] = [],
+  lastSyncNoteIds: string[] = [],
 ): Promise<SyncResult> {
   const syncedAt = new Date().toISOString();
 
@@ -234,8 +264,8 @@ export async function syncWithWebdav(
     let pushed = 0;
 
     if (remote) {
-      // Merge: apply remote changes locally
-      pulled = await applyRemoteData(remote);
+      // Merge: apply remote changes locally (with last-sync tracking for deletions)
+      pulled = await applyRemoteData(remote, lastSyncFolderIds, lastSyncNoteIds);
 
       // Collect merged local data and upload
       const merged = await collectLocalData();
@@ -249,6 +279,13 @@ export async function syncWithWebdav(
       pushed = local.notes.length + local.folders.length;
     }
 
+    // Persist the current ID sets as the new sync baseline
+    const mergedLocal = await collectLocalData();
+    setLastSyncIds(
+      mergedLocal.notes.map((n) => n.id),
+      mergedLocal.folders.map((f) => f.id),
+    );
+
     return { success: true, syncedAt, pulled, pushed };
   } catch (err) {
     return {
@@ -256,7 +293,7 @@ export async function syncWithWebdav(
       syncedAt,
       pulled: 0,
       pushed: 0,
-      error: err instanceof Error ? err.message : String(err),
+      error: typeof err === "string" ? err : err instanceof Error ? err.message : String(err),
     };
   }
 }

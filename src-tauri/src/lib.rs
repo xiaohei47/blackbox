@@ -1,4 +1,5 @@
 mod mig;
+mod webdav;
 
 use serde::Serialize;
 use std::path::Path;
@@ -123,7 +124,14 @@ pub fn run() {
         .plugin(tauri_plugin_store::Builder::default().build())
         .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_dialog::init())
-        .invoke_handler(tauri::generate_handler![import_note_file, save_pasted_image])
+        .invoke_handler(tauri::generate_handler![
+            import_note_file,
+            save_pasted_image,
+            webdav::webdav_test_connection,
+            webdav::webdav_get_text,
+            webdav::webdav_put_text,
+            webdav::webdav_mkcol,
+        ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }

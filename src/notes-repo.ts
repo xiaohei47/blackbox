@@ -28,10 +28,14 @@ function nowISO(): string {
   return new Date().toISOString();
 }
 
-export async function loadNotes(folderId?: string | null): Promise<Note[]> {
+export async function loadNotes(
+  folderId?: string | null,
+  includeArchived?: boolean,
+): Promise<Note[]> {
   const db = await getDb();
-  let sql =
-    "SELECT * FROM notes WHERE is_archived = 0";
+  let sql = includeArchived
+    ? "SELECT * FROM notes"
+    : "SELECT * FROM notes WHERE is_archived = 0";
   const params: unknown[] = [];
 
   if (folderId !== undefined) {
@@ -105,7 +109,7 @@ export async function createNote(folderId?: string | null): Promise<Note> {
 
 export async function updateNote(
   id: string,
-  patch: Partial<Pick<Note, "title" | "content">>,
+  patch: Partial<Pick<Note, "title" | "content" | "folderId" | "color" | "is_pinned">>,
 ): Promise<void> {
   const db = await getDb();
   const sets: string[] = [];
@@ -118,6 +122,18 @@ export async function updateNote(
   if (patch.content !== undefined) {
     sets.push("content = $" + (vals.length + 1));
     vals.push(patch.content);
+  }
+  if (patch.folderId !== undefined) {
+    sets.push("folder_id = $" + (vals.length + 1));
+    vals.push(patch.folderId);
+  }
+  if (patch.color !== undefined) {
+    sets.push("color = $" + (vals.length + 1));
+    vals.push(patch.color);
+  }
+  if (patch.is_pinned !== undefined) {
+    sets.push("is_pinned = $" + (vals.length + 1));
+    vals.push(patch.is_pinned ? 1 : 0);
   }
 
   if (sets.length === 0) return;

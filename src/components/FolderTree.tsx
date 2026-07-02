@@ -4,12 +4,13 @@ import type { MenuProps, TreeDataNode, TreeProps } from "antd";
 import {
   FolderOutlined,
   FolderOpenOutlined,
+  FolderAddOutlined,
   FileTextOutlined,
   MoreOutlined,
-  PlusOutlined,
   FileAddOutlined,
   SearchOutlined,
   DeleteOutlined,
+  SyncOutlined,
 } from "@ant-design/icons";
 import type { FolderNode, Folder } from "../folders-repo";
 import { createFolder, renameFolder, deleteFolder } from "../folders-repo";
@@ -26,11 +27,12 @@ interface Props {
   noteCounts: Map<string, number>;
   onSelectFolder: (folderId: string | null) => void;
   onSelectNote: (noteId: string) => void;
-  onCreateNote: () => void;
+  onCreateNote: (folderId?: string | null) => void;
   onStartRenameNote?: (noteId: string) => void;
   onFinishRenameNote: (noteId: string, title: string) => void;
   onDeleteNote: (noteId: string) => void;
   onRefresh: () => void;
+  onSync?: () => void;
 }
 
 interface FolderTreeDataNode extends TreeDataNode {
@@ -67,6 +69,7 @@ const FolderTree: React.FC<Props> = ({
   onFinishRenameNote,
   onDeleteNote,
   onRefresh,
+  onSync,
 }) => {
   const [expandedKeys, setExpandedKeys] = useState<React.Key[]>([]);
   const [searchText, setSearchText] = useState("");
@@ -340,7 +343,7 @@ const FolderTree: React.FC<Props> = ({
             label: "新建笔记",
             onClick: () => {
               onSelectFolder(folder.id);
-              onCreateNote();
+              onCreateNote(folder.id);
             },
           },
           { type: "divider" },
@@ -420,8 +423,13 @@ const FolderTree: React.FC<Props> = ({
           variant="borderless"
           allowClear
         />
+        {onSync && (
+          <button className="search-action-btn" title="同步" onClick={onSync}>
+            <SyncOutlined />
+          </button>
+        )}
         <button className="search-action-btn" title="新建文件夹" onClick={() => handleCreateFolder(null)}>
-          <PlusOutlined />
+          <FolderAddOutlined />
         </button>
       </div>
 

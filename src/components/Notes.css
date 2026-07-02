@@ -50,14 +50,6 @@
   font-weight: 600;
 }
 
-.notes-dirty-dot {
-  display: inline-block;
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: #ff9500;
-  flex-shrink: 0;
-}
 
 /* ============ Rich Editor (PlateJS / Slate) ============ */
 

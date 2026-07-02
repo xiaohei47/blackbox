@@ -4,6 +4,7 @@ import {
   EditOutlined,
   ToolOutlined,
   SettingOutlined,
+  StarFilled,
 } from "@ant-design/icons";
 import Notes from "./components/Notes";
 import Tools from "./components/Tools";
@@ -30,7 +31,7 @@ const App: React.FC = () => {
       <header className="topbar">
         <div className="topbar-inner">
           <div className="topbar-brand">
-            <span className="brand-dot" />
+            <StarFilled style={{ color: "#667eea", fontSize: 14 }} />
             <span>小黑百宝箱</span>
           </div>
           <nav className="topbar-nav">

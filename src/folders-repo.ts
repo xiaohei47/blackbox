@@ -56,9 +56,10 @@ export async function loadFolders(): Promise<Folder[]> {
 export async function createFolder(
   name: string,
   parentId: string | null = null,
+  id?: string,
 ): Promise<Folder> {
   const db = await getDb();
-  const id = crypto.randomUUID();
+  const folderId = id ?? crypto.randomUUID();
 
   // Get next sort_order for this parent
   let sortOrder = 0;
@@ -77,9 +78,9 @@ export async function createFolder(
 
   await db.execute(
     "INSERT INTO folders (id, name, parent_id, sort_order) VALUES ($1, $2, $3, $4)",
-    [id, name, parentId, sortOrder],
+    [folderId, name, parentId, sortOrder],
   );
-  return { id, name, parentId, sortOrder };
+  return { id: folderId, name, parentId, sortOrder };
 }
 
 export async function renameFolder(id: string, name: string): Promise<void> {
